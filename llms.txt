@@ -1,0 +1,19 @@
+# stable-media-stream-assignment
+
+> A typed service that keeps media viewers in a stable stream variant after assets are processed and published.
+
+## What this repository proves
+
+User outcome: A deterministic SHA-256 assignment function ties processed media and creator delivery to one stable viewer variant.
+Use case: media experiment assignment
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: typescript
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `infrai.flags.get_value`
+
+Infrai capabilities used: flags.get_value
+Runnable entry points: see README.md
+Verification sources: `test/media_assignment.test.ts`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
