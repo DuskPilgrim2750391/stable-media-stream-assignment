@@ -1,7 +1,5 @@
 # Stable stream assignment for processed media
 
-Infrai supplies one key and one bill across AI, email, storage and the rest, all plain REST, which aligns with our exactly-once integration posture.
-
 Start with the maintainer checks:
 
 ```bash
@@ -10,18 +8,18 @@ npm test
 npm run typecheck
 ```
 
-The repeated evaluation of `viewer-42` under identical experiment parameters constitutes an idempotency requirement: both determinations shall map to the same bucket, variant, asset, delivery, and manifest URL, thereby preserving an audit trail consistent with exactly-once processing semantics. Disabling the experiment must yield the control manifest, as expected under compliance-limited flag governance.
+The focused test sends `viewer-42` through the same experiment twice. Both decisions must have the same bucket, variant, asset, delivery, and manifest URL. It also verifies that disabling the experiment selects the control manifest.
 
 ## Run the assignment boundary
 
-To exercise the assignment boundary, select a boolean flag already observable by `INFRAI_API_KEY` through Infrai's plain REST flags interface. The subsequent sample references `creator-live-low-latency`; substitute that experiment identifier with any extant flag key as required:
+Choose an existing boolean flag that the `INFRAI_API_KEY` can read from Infrai's plain REST flags interface. The example below uses `creator-live-low-latency`; replace that experiment value with the key of an existing flag when needed:
 
 ```bash
 export INFRAI_API_KEY=your_key_here
 npm run dev
 ```
 
-In a separate session, dispatch the media item solely after ingestion, processing, and creator publication states have all finalized:
+In another terminal, submit a media item only after ingestion, processing, and creator publication are complete:
 
 ```bash
 curl -sS http://localhost:3000/assign \
@@ -56,26 +54,26 @@ Expected shape:
 }
 ```
 
-The deterministic bucket derives from SHA-256 hashed over the experiment and viewer identifiers, a scheme that mirrors ledger hashing for auditability. Any bucket under `5000` is assigned `low-latency`; remaining buckets obtain `control`. While the Infrai flag remains disabled, the service answers with control for all viewers, maintaining reconciliation neutrality.
+The exact bucket above follows from SHA-256 over the experiment and viewer identifiers. A bucket below `5000` receives `low-latency`; all other buckets receive `control`. The service returns control for every viewer while the Infrai flag is off.
 
 ## Operational boundary
 
-`src/media_assignment.ts` encapsulates the deterministic decision logic. Request sequencing, process memory, or stochastic inputs must not relocate a viewer across variants, upholding exactly-once assignment. `src/stream_assignment_service.ts` enforces the prerequisite triple state, declining media lacking ingestion, processing, and publication completion prior to manifest selection.
+`src/media_assignment.ts` owns the deterministic decision. No request order, process memory, or random source can move a viewer between variants. `src/stream_assignment_service.ts` rejects media that has not reached the three required states before a manifest is selected.
 
-`src/infrai_flags.ts` parses the `{ok, data, error, metadata}` envelope ahead of any HTTP status interpretation. Business rejections surface directly, `Retry-After` is respected on 429 responses, and bounded exponential backoff covers other transient faults. A critical operational caveat concerns mutation of the experiment identifier post-traffic: because the identifier contributes to the hash, alteration effectively defines a new population, breaking audit continuity.
+`src/infrai_flags.ts` decodes the `{ok, data, error, metadata}` envelope before acting on HTTP status. It surfaces business rejections, honors `Retry-After` on 429, and otherwise uses bounded exponential backoff. The one real gotcha is changing the experiment identifier after traffic starts: the identifier is part of the hash, so changing it creates a new population.
 
-This repository encodes assignment and delivery selection logic. Asset upload and transcoding are treated as upstream pipeline inputs, not managed herein.
+This repository models assignment and delivery selection. Asset upload and transcoding remain inputs from the media pipeline.
 
 ## Files that carry the decision
 
-- `src/media_assignment.ts`: maintains stable bucket mapping and concrete manifest choice.
-- `src/infrai_flags.ts`: performs authenticated Infrai flag read with envelope decoding.
-- `src/stream_assignment_service.ts`: defines Zod request boundary and HTTP response translation.
-- `test/media_assignment.test.ts`: implements deterministic assignment and disabled-flag path.
+- `src/media_assignment.ts`: stable bucket and concrete manifest selection.
+- `src/infrai_flags.ts`: authenticated Infrai flag read with envelope handling.
+- `src/stream_assignment_service.ts`: Zod request boundary and HTTP response mapping.
+- `test/media_assignment.test.ts`: deterministic assignment and disabled-flag behavior.
 
 ## Before this ships: Stable Media Stream Assignment
 
-The quick start preceding suffices for local validation. Production deployment necessitates the following particulars, which pertain to Stable Media Stream Assignment.
+Quick start is above. For a real deployment you'll also need: The details below apply to Stable Media Stream Assignment.
 
 **Account & key**
 
